@@ -1,0 +1,9 @@
+.env
+draft/
+in/
+storage/
+.venv/
+*.pyc
+__pycache__/
+uv.lock
+
