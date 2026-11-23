@@ -30,12 +30,7 @@ logging.basicConfig(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
-        generator = get_generator(
-            settings.llm_provider_type,
-            model = settings.llm_provider_model,
-            api_key = settings.llm_provider_api_key,
-            temperature = settings.llm_temperature
-        )
+        generator = get_generator(settings.rag_llm)
         app.state.retriever = get_retriever(
             settings.retriever_type,
             db_path = settings.retriever_db_path,

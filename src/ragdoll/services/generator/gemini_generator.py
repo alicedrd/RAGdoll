@@ -1,20 +1,31 @@
+import logging
+
 from fastapi import status
 from google import genai
 from google.genai import errors
-import logging
 
-from ragdoll.core.exceptions import AppException, ServiceOverloadError, PolicyViolatedError, GenerationExhaustedError, RemoteFailureError, RemoteTimeoutError, OtherGeneratorError, BlacklistViolationError
+from ragdoll.core.exceptions import (
+    AppException,
+    BlacklistViolationError,
+    GenerationExhaustedError,
+    OtherGeneratorError,
+    PolicyViolatedError,
+    RemoteFailureError,
+    RemoteTimeoutError,
+    ServiceOverloadError,
+)
+from ragdoll.models.llm_config.gemini_config import GeminiConfig
 from ragdoll.services.generator.base_generator import BaseGenerator
 
 logger = logging.getLogger(__name__)
 
 class GeminiGenerator(BaseGenerator):
-    def __init__(self , model : str, api_key: str | None = None, temperature: float = 0.2):
+    def __init__(self, config: GeminiConfig):
         logger.info('Initializing Gemini API client')
         logger.debug(f'Using system prompt : ${self._SYSTEM_PROMPT}')
-        self._client = genai.Client(api_key = api_key)
-        self._model = model
-        self._TEMPERATURE = temperature
+        self._client = genai.Client(api_key = config.api_key.get_secret_value())
+        self._model = config.model
+        self._TEMPERATURE = config.temperature
 
     # build exception from a blocked prompt/halted generation response
     def _build_exception_from_response(self, prompt: str, res: genai.types.GenerateContentResponse) -> AppException:
@@ -22,7 +33,7 @@ class GeminiGenerator(BaseGenerator):
         if not res.candidates or len(res.candidates) == 0:
             block_reason = getattr(res.prompt_feedback, "block_reason", "EMPTY_REASON")
             if block_reason == "BLOCKLIST":
-                logger.warning(f"Input prompt violated blocklist. Full prompt : {prompt}", exc_info=True)
+                logger.warning(f"Input prompt violated blocklist. Full prompt : {prompt}")
                 return BlacklistViolationError("Prompt violated internal blocklist")
             else:
                 logger.warning(f"Input prompt or context violates Gemini content policy ({block_reason}).\nFull input prompt : {prompt}", exc_info=True)
@@ -34,10 +45,10 @@ class GeminiGenerator(BaseGenerator):
             logger.warning(f"During generation, response violated Gemini content/copyright policy ({finish_reason}). Full prompt: {prompt}", exc_info=True)
             return PolicyViolatedError("Gemini content or copyright policy violated during generation. This is probably imputable to prompt")
         elif finish_reason == "MAX_TOKENS":
-            logger.critical(f"During generation, response exceed token limit. Prompt: {prompt}", exc_info=True)
+            logger.critical(f"During generation, response exceed token limit. Prompt: {prompt}")
             return OtherGeneratorError()
         else:
-            logger.warning(f"Generation halted for unknown reasons", exc_info=True)
+            logger.warning("Generation halted for unknown reasons")
             return RemoteFailureError()
 
     # send a question to Gemini

@@ -1,22 +1,21 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
-from ragdoll.services.generator import ProviderType
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from ragdoll.models.llm_config.llm_config import LLMConfig
 from ragdoll.services.retriever import RetrieverType
+
 
 class RagSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file = ".env",
+        env_nested_delimiter = "__",
         env_file_encoding = "utf-8"
     )
 
     sql_db_url: str = Field(default = ...)
-
-    llm_provider_type: ProviderType = ProviderType.GEMINI
-    llm_provider_model: str = "gemini-2.5-flash"
-    # default = ... prevents VS Code static type checking 
-    # from believing Settings constructor needs llm_provider_api_key as a parameter
-    llm_provider_api_key: str = Field(default = ...)
-    llm_temperature: float = 0.2
+    
+    rag_llm: LLMConfig = Field(default = ...)
+    eval_llm: LLMConfig | None = None
 
     retriever_type: RetrieverType = RetrieverType.CHROMADB
     retriever_db_path: str = "./storage/chromadb/"
