@@ -16,3 +16,7 @@ class BaseGenerator(ABC):
     @abstractmethod
     def ask(self, question: str, context: list[str]) -> str:
         pass
+    
+    @abstractmethod
+    def get_model_name(self) -> str:
+        pass

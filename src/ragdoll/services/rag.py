@@ -3,18 +3,24 @@
 import io
 import logging
 from collections.abc import Sequence
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-from sqlalchemy.exc import NoResultFound
 
-from ragdoll.core.exceptions import EmptyDocParsingError, DocNotFoundError, NoSearchResult
-from ragdoll.models.registry.docrecord import DocRecord
-from ragdoll.models.api.documents import AddDocsResponse
+from sqlalchemy import select
+from sqlalchemy.exc import NoResultFound
+from sqlalchemy.orm import Session
+
+from ragdoll.core.exceptions import (
+    DocNotFoundError,
+    EmptyDocParsingError,
+    NoSearchResult,
+)
 from ragdoll.models.api.chat import ChatResponse
+from ragdoll.models.api.documents import AddDocsResponse
 from ragdoll.models.api.search import SearchResElement
-from ragdoll.services.generator.base_generator import BaseGenerator
-from ragdoll.services.parser import parse_doc
+from ragdoll.models.registry.docrecord import DocRecord
+from ragdoll.models.registry.queryrecord import QueryRecord
 from ragdoll.services.chunker import chunk_text
+from ragdoll.services.generator_llm.base_generator import BaseGenerator
+from ragdoll.services.parser import parse_doc
 from ragdoll.services.retriever.base_retriever import BaseRetriever
 from ragdoll.utils import clean_name
 
@@ -49,6 +55,7 @@ class RagEngine:
         )
         try:
             session.add(doc_record)
+            logger.info(f"Document record of {doc_id} added to DB")
             session.commit()
         except Exception:
             logger.error(f"SQL error during insertion of doc {doc_id} to DB, reverting vectorstore insertions")
@@ -99,7 +106,23 @@ class RagEngine:
         return context
 
     # ask a question to the RAG
-    def ask_question(self, question: str, top_k: int) -> ChatResponse:
+    def ask_question(self, question: str, top_k: int, session: Session) -> ChatResponse:
         context = [c.extract for c in self._retriever.search(question, nb_results = top_k)]
         answer = self._generator.ask(question, context)
+        # trace the request by adding it to the DB
+        # mandatory for evaluating our RAG later
+        # (we'll use traced requests and pass them to Ragas)
+        doc_record = QueryRecord(
+            model = self._generator.get_model_name(),
+            question = question,
+            contexts = context,
+            answer = answer
+        )
+        try:
+            session.add(doc_record)
+            logger.info("Query record added to DB")
+            session.commit()
+        except Exception:
+            logger.error("SQL error during insertion of query record to DB")
+            raise
         return ChatResponse(answer = answer, sources = context)

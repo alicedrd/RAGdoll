@@ -8,7 +8,7 @@ import logging
 import sys
 
 from ragdoll.services.rag import RagEngine
-from ragdoll.services.generator import get_generator
+from ragdoll.services.generator_llm import get_generator
 from ragdoll.services.retriever import get_retriever
 from ragdoll.core.sqldb import get_sessionmaker
 from ragdoll.core.config import settings
@@ -40,8 +40,11 @@ async def lifespan(app: FastAPI):
         app.state.sql_session_maker = get_sessionmaker(
             db_url = settings.sql_db_url
         )
+        
+        if settings.eval_llm:
+            pass 
     except Exception as err:
-        logger.error(f'Error during app init : {err}', exc_info = True)
+        logger.exception('Error during app init : ')
         raise RuntimeError(f"App init failed : {err}") from err
 
     yield

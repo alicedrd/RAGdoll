@@ -15,7 +15,7 @@ from ragdoll.core.exceptions import (
     ServiceOverloadError,
 )
 from ragdoll.models.llm_config.gemini_config import GeminiConfig
-from ragdoll.services.generator.base_generator import BaseGenerator
+from ragdoll.services.generator_llm.base_generator import BaseGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -96,3 +96,7 @@ class GeminiGenerator(BaseGenerator):
             return res.text
         except ValueError as e:
             raise self._build_exception_from_response(user_prompt, res) from e
+        
+    # returns model name
+    def get_model_name(self) -> str:
+        return self._model
